@@ -85,7 +85,7 @@ class Course {
     if (draw) {
       this.closestPlaza.lines.push(this)
       this.angle = angle - this.snapAngle
-      if (this.segments.length > 0 && this.segments[0].feature.type == 'plaza') {
+      if (this.segments.length > 0 && (this.segments[0].feature !== null && this.segments[0].feature.type == 'plaza')) {
         this.segments[0].feature.lines.push(this)
       }
     }
@@ -182,6 +182,15 @@ class Course {
       })
       lastPoint = intersection.point
     }
+
+    segments.push({
+      feature: null,
+      start: lastPoint,
+      end: this.dest,
+      dist: distance([ lastPoint.x, lastPoint.y ], [this.c.x, this.c.y])
+    })
+
+
     const closest = segments.sort(this.sortByDistance)
     this.segments = closest
   }
@@ -199,7 +208,7 @@ class Course {
         )
         if (intersection) {
           const dist = distance(intersection, [this.end.x, this.end.y])
-          if (dist > 0) {
+          if (dist > .1) {
             intersections.push({
               feature: feature,
               point: {
