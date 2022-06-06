@@ -92,7 +92,7 @@ class Course {
   }
   getPossibleAngles(divisors) {
     const full = Math.PI * 2
-    const segment = full / divisors
+    const segment = full / Math.min(divisors, 4096)
 
     const possibleAngles = []
     for (let i = 0; i < full; i = i + segment) {
