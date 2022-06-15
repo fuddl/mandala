@@ -195,6 +195,7 @@ class Course {
     this.segments = closest
   }
   generateIntersections() {
+    const arc = Math.atan2(this.c.y - this.closestPlaza.cy, this.c.x - this.closestPlaza.cx) + Math.PI
     const intersections = []
     for (const feature of this.context) {
       if (feature.type == 'course') {
@@ -227,7 +228,9 @@ class Course {
             x2: this.dest.x,
             y2: this.dest.y,
           }),
-          svgIntersections.shape("circle", {
+          feature.d ? svgIntersections.shape("path", {
+            d: feature.d
+          }) : svgIntersections.shape("circle", {
             cx: feature.c.x,
             cy: feature.c.y,
             r: feature.r,
@@ -328,7 +331,11 @@ class Boulevard {
     this.generateArcSegments()
     if (this.segments.length > 0) {
       this.arc = this.segments[0]
+      this.d = this.generateD()
     }
+  }
+  generateD() {
+    return `M ${this.segments[0].start.x},${this.segments[0].start.y} A ${this.r} ${this.r} 0 0 1 ${this.segments[0].end.x},${this.segments[0].end.y}`
   }
   generateIntersections() {
     const intersections = []
@@ -455,8 +462,8 @@ class Boulevard {
           <path d={`M ${segment.start.x},${segment.start.y} A ${this.r} ${this.r} 0 0 1 ${segment.end.x},${segment.end.y} `} stroke="skyBlue" fill="none" stroke-dasharray="4 1"  />
         </>
       )) }
-      { this.segments.length > 0 && 
-        <path d={`M ${this.segments[0].start.x},${this.segments[0].start.y} A ${this.r} ${this.r} 0 0 1 ${this.segments[0].end.x},${this.segments[0].end.y} `} stroke={ preview ? "skyBlue" : "white" } fill="none" stroke-width={ this.width - 2 }  />
+      { this?.d && 
+        <path d={ this.d } stroke={ preview ? "skyBlue" : "white" } fill="none" stroke-width={ this.width - 2 }  />
       }
       { this.segments.length === 0 &&
         <circle
