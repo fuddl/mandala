@@ -324,6 +324,77 @@ class Boulevard {
       y: closestPlazas[0].feature.cy
     }
     this.r = this.snapR(closestPlazas, closestPlazas[0].dist)
+    this.generateIntersections()
+    this.generateArcSegments()
+    if (this.segments.length > 0) {
+      this.arc = this.segments[0]
+    }
+  }
+  generateIntersections() {
+    const intersections = []
+    for (const feature of this.context) {
+      if (feature.type == 'course') {
+        let circleIntersections = svgIntersections.intersect(
+          svgIntersections.shape("line", {
+            x1: feature.start.x,
+            y1: feature.start.y,
+            x2: feature.end.x,
+            y2: feature.end.y,
+          }),
+          svgIntersections.shape("circle", {
+            cx: this.c.x,
+            cy: this.c.y,
+            r: this.r,
+          })
+        );
+        for (let intersectionPoint of circleIntersections.points) {
+          intersections.push({
+            feature: feature,
+            point: intersectionPoint,
+            dist: distance([intersectionPoint.x, intersectionPoint.y], [this.target.x, this.target.y]),
+            arc: Math.atan2(intersectionPoint.y - this.c.y, intersectionPoint.x - this.c.x) + Math.PI
+          })
+        }
+      }
+    }
+    this.intersections = intersections.sort(this.sortByArc)
+  }
+  sortByArc(A, B) {
+    return A.arc < B.arc ? -1 : 1;
+  }
+  generateArcSegments() {
+    const segments = []
+    let last = null
+    for (const intersection of this.intersections) {
+      if (last == null) {
+        last = intersection
+        continue
+      } else {
+        segments.push({
+          start: {
+            arc: last.arc,
+            ...last.point,
+          },
+          end: {
+            arc: intersection.arc,
+            ...intersection.point,
+          }
+        })
+        last = intersection
+      }
+    }
+    if (segments.length > 1) {
+      segments.push({
+        start: segments[segments.length - 1].end,
+        end: segments[0].start,
+      })
+    }
+    const target = Math.atan2(this.target.y - this.c.y, this.target.x - this.c.x) + Math.PI
+    console.debug(target)
+
+    this.segments = segments.sort(function(a, b){
+      return Math.abs(b.start.arc - target) < Math.abs(a.start.arc - target) ? 1 : -1
+    })
   }
   snapR(plazas, goal) {
     const plazaDist = distance([plazas[0].feature.cx, plazas[1].feature.cy], [plazas[1].feature.cx, plazas[0].feature.cy])
@@ -358,24 +429,46 @@ class Boulevard {
     return A.dist < B.dist ? -1 : 1;
   }
   background() {
-    return <circle
-      cx={ this.c.x }
-      cy={ this.c.y }
-      r={ this.r }
-      fill="none"
-      stroke-width={ this.width }
-      stroke="black"
-    />
+    return <>
+      { this.segments.length > 0 && 
+        <path d={`M ${this.segments[0].start.x},${this.segments[0].start.y} A ${this.r} ${this.r} 0 0 1 ${this.segments[0].end.x},${this.segments[0].end.y} `} stroke="black" fill="none" stroke-width={ this.width }  />
+      }
+      { this.segments.length === 0 &&
+        <circle
+          cx={ this.c.x }
+          cy={ this.c.y }
+          fill="none"
+          r={ this.r }
+          stroke-width={ this.width }
+          stroke="black"
+        />
+      }
+    </>
   }
   foreground(preview) {
-    return <circle
-      cx={ this.c.x }
-      cy={ this.c.y }
-      fill="none"
-      r={ this.r }
-      stroke-width={ this.width - 2 }
-      stroke={ preview ? "skyBlue" : "white" }
-    />
+    return <>
+      { preview && this.intersections.map( (intersection, key) => (
+        <circle cx={intersection.point.x} cy={intersection.point.y} r="6" fill="skyBlue" />
+      )) }
+      { preview && this.segments.map( (segment, key) => (
+        <>
+          <path d={`M ${segment.start.x},${segment.start.y} A ${this.r} ${this.r} 0 0 1 ${segment.end.x},${segment.end.y} `} stroke="skyBlue" fill="none" stroke-dasharray="4 1"  />
+        </>
+      )) }
+      { this.segments.length > 0 && 
+        <path d={`M ${this.segments[0].start.x},${this.segments[0].start.y} A ${this.r} ${this.r} 0 0 1 ${this.segments[0].end.x},${this.segments[0].end.y} `} stroke={ preview ? "skyBlue" : "white" } fill="none" stroke-width={ this.width - 2 }  />
+      }
+      { this.segments.length === 0 &&
+        <circle
+          cx={ this.c.x }
+          cy={ this.c.y }
+          fill="none"
+          r={ this.r }
+          stroke-width={ this.width - 2 }
+          stroke={ preview ? "skyBlue" : "white" }
+        />
+      }
+    </>
   }
   preview() {
     return this.foreground(true)
@@ -409,7 +502,7 @@ export function App() {
       }
     }
     if (features.length > 0) {
-      if (features.length % 6 == 0) {
+      if (features.length % 3 == 0) {
         setMode('boulevard')
       } else {
         setMode('course')
